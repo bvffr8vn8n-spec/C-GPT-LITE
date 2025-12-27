@@ -1,0 +1,35 @@
+{
+  "name": "chatgpt-lite",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun run scripts/dev-with-open.ts",
+    "dev:simple": "bun --bun next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test:chat": "bun run scripts/test-chat.ts",
+    "test:openai": "bun run scripts/test-openai-direct.ts"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ai": "6.0.1",
+    "@ai-sdk/react": "3.0.1",
+    "@ai-sdk/openai": "3.0.0",
+    "zod": "^4.0.0",
+    "xlsx": "^0.18.5",
+    "openai": "^4.52.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.0",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47"
+  }
+}
+
