@@ -47,9 +47,9 @@ export const serverTools = {
   }),
 
   performDangerousAction: tool({
-    description: "Perform a dangerous action (delete/update) after user confirmation. This tool actually modifies the database. Only call this AFTER requestDangerousActionConfirmation returned decision='yes'.",
+    description: "Perform a dangerous action (delete/update) after user confirmation. IMPORTANT: For XLSX cell updates, DO NOT use this tool - use 'updateCell' tool instead. This tool is ONLY for deleteThread, deleteMessage, and updateMessage actions. This tool actually modifies the database. Only call this AFTER requestDangerousActionConfirmation returned decision='yes'.",
     inputSchema: z.object({
-      action: z.enum(["deleteThread", "deleteMessage", "updateMessage", "updateXlsxCell"]).describe("Type of action to perform"),
+      action: z.enum(["deleteThread", "deleteMessage", "updateMessage"]).describe("Type of action to perform. DO NOT use 'updateXlsxCell' - use 'updateCell' tool for XLSX updates instead."),
       targetId: z.string().describe("ID of the thread or message to act upon, or cell address for updateXlsxCell (e.g., 'A1')"),
       threadId: z.string().optional().describe("Thread ID (required for deleteMessage and updateMessage)"),
       newContent: z.string().optional().describe("New content for updateMessage action, or sheet name for updateXlsxCell"),

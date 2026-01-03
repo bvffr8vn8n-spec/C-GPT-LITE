@@ -18,21 +18,35 @@ function convertToUIMessages(
     id: string;
     role: "user" | "assistant";
     content: string;
+    parts_json: string | null;
     created_at: number;
   }>
 ): UIMessage[] {
-  return dbMessages.map((msg) => ({
-    id: msg.id,
-    role: msg.role,
-    content: msg.content, // Добавляем content для совместимости с типом
-    parts: [
-      {
-        type: "text",
-        text: msg.content,
-      },
-    ],
-    createdAt: new Date(msg.created_at),
-  })) as UIMessage[];
+  return dbMessages.map((msg) => {
+    // FIX: Восстанавливаем parts из parts_json если есть
+    let parts: any[] = [];
+    if (msg.parts_json) {
+      try {
+        parts = JSON.parse(msg.parts_json);
+        console.log("✅ [page] Восстановлены parts из БД:", { id: msg.id, partsCount: parts.length });
+      } catch (e) {
+        console.warn("⚠️ [page] Ошибка парсинга parts_json:", e);
+        // Fallback на text part
+        parts = [{ type: "text", text: msg.content }];
+      }
+    } else {
+      // Fallback: если нет parts_json, создаём text part
+      parts = [{ type: "text", text: msg.content }];
+    }
+    
+    return {
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      parts,
+      createdAt: new Date(msg.created_at),
+    } as UIMessage;
+  });
 }
 
 export default async function ThreadPage({
@@ -71,7 +85,7 @@ export default async function ThreadPage({
 
       {/* Чат */}
       <div style={{ flex: 1, overflow: "hidden" }}>
-        <ChatClient threadId={id} initialMessages={initialMessages} />
+        <ChatClient key={id} threadId={id} initialMessages={initialMessages} />
       </div>
     </div>
   );

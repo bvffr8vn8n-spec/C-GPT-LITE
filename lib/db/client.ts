@@ -40,6 +40,7 @@ function getDatabase(): Database {
           thread_id TEXT NOT NULL,
           role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
           content TEXT NOT NULL,
+          parts_json TEXT,
           created_at INTEGER NOT NULL,
           FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE
         );
@@ -47,6 +48,17 @@ function getDatabase(): Database {
         CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id);
         CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
       `);
+      
+      // Миграция: добавляем parts_json если его нет
+      try {
+        raw.exec(`ALTER TABLE messages ADD COLUMN parts_json TEXT`);
+        console.log("✅ [db] Миграция: добавлено поле parts_json");
+      } catch (e: any) {
+        // Игнорируем ошибку если колонка уже существует
+        if (!e?.message?.includes("duplicate column name")) {
+          console.log("ℹ️ [db] parts_json уже существует или ошибка миграции:", e?.message);
+        }
+      }
       
       isMigrated = true;
     }

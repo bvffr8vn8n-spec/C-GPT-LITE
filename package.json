@@ -9,18 +9,21 @@
     "start": "next start",
     "lint": "next lint",
     "test:chat": "bun run scripts/test-chat.ts",
-    "test:openai": "bun run scripts/test-openai-direct.ts"
+    "test:openai": "bun run scripts/test-openai-direct.ts",
+    "test:confirmation": "bun run scripts/test-askForConfirmation.ts",
+    "test:confirmation:standalone": "bun run scripts/test-askForConfirmation-standalone.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "3.0.0",
+    "@ai-sdk/react": "3.0.1",
+    "ai": "6.0.1",
+    "formulajs": "^1.0.8",
     "next": "^16.0.0",
+    "openai": "^4.52.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "ai": "6.0.1",
-    "@ai-sdk/react": "3.0.1",
-    "@ai-sdk/openai": "3.0.0",
-    "zod": "^4.0.0",
     "xlsx": "^0.18.5",
-    "openai": "^4.52.0"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -32,4 +35,3 @@
     "postcss": "^8.4.47"
   }
 }
-

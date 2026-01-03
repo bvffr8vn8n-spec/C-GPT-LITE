@@ -1,115 +1,59 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
+import SpreadsheetView from "./SpreadsheetView";
 
 interface TableData {
   sheet: string;
   range: string;
   data: Array<Array<string | number | null>>;
   headers?: string[];
+  formulas?: Array<Array<string | null>>; // Матрица формул
 }
 
 interface Props {
   tableData: TableData;
   onClose: () => void;
   onRangeSelect?: (range: string) => void;
+  onEditCell?: (sheet: string, cell: string, value: string | number) => void;
 }
 
-interface SelectedCell {
-  row: number;
-  col: number;
-}
+export default function TableModal({ tableData, onRangeSelect, onClose, onEditCell }: Props) {
+  const [localTableData, setLocalTableData] = useState<TableData>(tableData);
 
-export default function TableModal({ tableData, onRangeSelect, onClose }: Props) {
-  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [selectionStart, setSelectionStart] = useState<SelectedCell | null>(null);
-  const tableRef = useRef<HTMLTableElement>(null);
+  // Обновляем локальные данные при изменении пропсов
+  useEffect(() => {
+    setLocalTableData(tableData);
+  }, [tableData]);
 
-  const tableRows = tableData.data;
-  const hasHeaders = tableData.headers && tableData.headers.length > 0;
-  const displayRows = hasHeaders ? tableRows.slice(1) : tableRows;
-  const headers = hasHeaders ? tableData.headers! : tableRows[0]?.map((_, i) => String.fromCharCode(65 + i)) || [];
-
-  // Конвертируем координаты в адрес ячейки (A1, B2, etc.)
-  function getCellAddress(row: number, col: number): string {
-    const colStr = String.fromCharCode(65 + col);
-    const rowNum = row + 1;
-    return `${colStr}${rowNum}`;
-  }
-
-  // Парсим диапазон из selectedCells
-  function getSelectedRange(): string | null {
-    if (selectedCells.size === 0) return null;
-
-    const cells = Array.from(selectedCells)
-      .map((key) => {
-        const [row, col] = key.split(",").map(Number);
-        return { row, col, address: getCellAddress(row, col) };
-      })
-      .sort((a, b) => {
-        if (a.row !== b.row) return a.row - b.row;
-        return a.col - b.col;
-      });
-
-    if (cells.length === 0) return null;
-
-    const first = cells[0];
-    const last = cells[cells.length - 1];
-
-    if (cells.length === 1) {
-      return `${tableData.sheet}!${first.address}`;
-    }
-
-    return `${tableData.sheet}!${first.address}:${last.address}`;
-  }
-
-  function handleCellMouseDown(row: number, col: number, e: React.MouseEvent) {
-    e.preventDefault();
-    setIsSelecting(true);
-    setSelectionStart({ row, col });
-    setSelectedCells(new Set([`${row},${col}`]));
-  }
-
-  function handleCellMouseEnter(row: number, col: number) {
-    if (!isSelecting || !selectionStart) return;
-
-    const newSelection = new Set<string>();
-    const startRow = Math.min(selectionStart.row, row);
-    const endRow = Math.max(selectionStart.row, row);
-    const startCol = Math.min(selectionStart.col, col);
-    const endCol = Math.max(selectionStart.col, col);
-
-    for (let r = startRow; r <= endRow; r++) {
-      for (let c = startCol; c <= endCol; c++) {
-        newSelection.add(`${r},${c}`);
+  // Обработчик редактирования ячейки
+  const handleEditCell = async (sheet: string, cell: string, value: string | number) => {
+    if (onEditCell) {
+      await onEditCell(sheet, cell, value);
+      // Обновляем локальные данные после редактирования
+      // (onEditCell должен обновить таблицу через API и вернуть обновлённые данные)
+      const rangeMatch = localTableData.range.match(/^([A-Z]+\d+):([A-Z]+\d+)$/);
+      if (rangeMatch) {
+        try {
+          const rangeResponse = await fetch(
+            `/api/xlsx/range?sheet=${sheet}&from=${rangeMatch[1]}&to=${rangeMatch[2]}`
+          );
+          if (rangeResponse.ok) {
+            const rangeData = await rangeResponse.json();
+            setLocalTableData({
+              sheet: rangeData.sheet,
+              range: rangeData.range,
+              data: rangeData.data,
+              headers: rangeData.headers,
+              formulas: rangeData.formulas, // Обновляем формулы
+            });
+          }
+        } catch (error) {
+          console.error("❌ [TableModal] Ошибка при обновлении таблицы:", error);
+        }
       }
     }
-
-    setSelectedCells(newSelection);
-  }
-
-  function handleMouseUp() {
-    setIsSelecting(false);
-    setSelectionStart(null);
-  }
-
-  function handleInsertMention() {
-    const range = getSelectedRange();
-    if (range && onRangeSelect) {
-      onRangeSelect(range);
-      onClose();
-    }
-  }
-
-  useEffect(() => {
-    document.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, []);
-
-  const selectedRange = getSelectedRange();
+  };
 
   return (
     <div
@@ -147,31 +91,13 @@ export default function TableModal({ tableData, onRangeSelect, onClose }: Props)
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-              📊 {tableData.sheet}!{tableData.range}
+              📊 {localTableData.sheet}!{localTableData.range}
             </h2>
-            {selectedRange && (
-              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                Выбрано: {selectedRange}
-              </div>
-            )}
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+              Выделите диапазон и нажмите "Вставить диапазон" для вставки в чат
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {selectedRange && onRangeSelect && (
-              <button
-                onClick={handleInsertMention}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(100,150,255,0.5)",
-                  background: "rgba(100,150,255,0.2)",
-                  color: "inherit",
-                  cursor: "pointer",
-                  fontSize: 14,
-                }}
-              >
-                Вставить {selectedRange}
-              </button>
-            )}
             <button
               onClick={onClose}
               style={{
@@ -190,67 +116,22 @@ export default function TableModal({ tableData, onRangeSelect, onClose }: Props)
         </div>
 
         <div style={{ overflow: "auto", maxHeight: "70vh" }}>
-          <table
-            ref={tableRef}
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 14,
+          <SpreadsheetView
+            sheet={localTableData.sheet}
+            range={localTableData.range}
+            data={localTableData.data}
+            headers={localTableData.headers}
+            formulas={localTableData.formulas}
+            onEditCell={handleEditCell}
+            onRangeSelect={(mention) => {
+              if (onRangeSelect) {
+                onRangeSelect(mention);
+                onClose();
+              }
             }}
-          >
-            <thead>
-              <tr>
-                {headers.map((header, idx) => (
-                  <th
-                    key={idx}
-                    style={{
-                      padding: "8px 12px",
-                      border: "1px solid rgba(255,255,255,0.2)",
-                      background: "rgba(255,255,255,0.05)",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 10,
-                    }}
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {displayRows.map((row, rowIdx) => (
-                <tr key={rowIdx}>
-                  {row.map((cell, colIdx) => {
-                    const cellKey = `${rowIdx},${colIdx}`;
-                    const isSelected = selectedCells.has(cellKey);
-                    return (
-                      <td
-                        key={colIdx}
-                        onMouseDown={(e) => handleCellMouseDown(rowIdx, colIdx, e)}
-                        onMouseEnter={() => handleCellMouseEnter(rowIdx, colIdx)}
-                        style={{
-                          padding: "8px 12px",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          background: isSelected
-                            ? "rgba(100,150,255,0.3)"
-                            : "transparent",
-                          cursor: "cell",
-                          userSelect: "none",
-                        }}
-                      >
-                        {cell ?? ""}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          />
         </div>
       </div>
     </div>
   );
 }
-

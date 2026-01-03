@@ -8,6 +8,7 @@ interface TableData {
   range: string;
   data: Array<Array<string | number | null>>;
   headers?: string[];
+  formulas?: Array<Array<string | null>>; // Матрица формул
 }
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 
 export default function TableMessage({ tableData, onRangeSelect }: Props) {
   const [showModal, setShowModal] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   // Преобразуем данные в формат для модального окна
   const tableRows = tableData.data || [];
@@ -33,11 +35,18 @@ export default function TableMessage({ tableData, onRangeSelect }: Props) {
           marginTop: 12,
           padding: "16px",
           borderRadius: 12,
-          border: "1px solid rgba(100,150,255,0.3)",
-          background: "rgba(100,150,255,0.1)",
+          border: isHovered 
+            ? "1px solid rgba(100,150,255,0.5)" 
+            : "1px solid rgba(100,150,255,0.3)",
+          background: isHovered 
+            ? "rgba(100,150,255,0.15)" 
+            : "rgba(100,150,255,0.1)",
           cursor: "pointer",
+          transition: "all 0.2s ease",
         }}
         onClick={() => setShowModal(true)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
           📊 <b>Таблица: {tableData.sheet}!{tableData.range}</b>
@@ -137,6 +146,52 @@ export default function TableMessage({ tableData, onRangeSelect }: Props) {
           tableData={tableData}
           onClose={() => setShowModal(false)}
           onRangeSelect={onRangeSelect}
+          onEditCell={async (sheet, cell, value) => {
+            // Локальное подтверждение для UI-редактирования
+            const confirmed = window.confirm(
+              `Изменить ячейку ${sheet}!${cell} на значение: ${value}?`
+            );
+            
+            if (!confirmed) {
+              return;
+            }
+
+            try {
+              // Вызываем API для обновления ячейки
+              const response = await fetch("/api/xlsx/perform", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "updateXlsxCell",
+                  targetId: cell,
+                  newContent: sheet,
+                  xlsxValue: value,
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+
+              const result = await response.json();
+
+              if (!result.ok) {
+                throw new Error(result.error || "Ошибка обновления ячейки");
+              }
+
+              // Обновляем таблицу через getRange
+              // Примечание: обновление данных таблицы должно происходить через родительский компонент
+              // Здесь просто закрываем модалку, данные обновятся при следующем рендере
+              const rangeMatch = tableData.range.match(/^([A-Z]+\d+):([A-Z]+\d+)$/);
+              if (rangeMatch) {
+                // Данные обновятся автоматически при следующем запросе getRange
+                // Модалка закроется, и пользователь увидит обновлённые данные
+              }
+            } catch (error) {
+              console.error("❌ [TableMessage] Ошибка при обновлении ячейки:", error);
+              alert(`Ошибка: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }}
         />
       )}
     </>
